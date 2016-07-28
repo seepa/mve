@@ -514,7 +514,7 @@ rangegrid_triangulate (Image<unsigned int> const& grid, TriangleMesh::Ptr mesh)
 /* ---------------------------------------------------------------- */
 
 void
-depthmap_mesh_confidences (TriangleMesh::Ptr mesh, int iterations)
+depthmap_mesh_confidences (TriangleMesh::Ptr mesh, int clampIters, int iterations)
 {
     if (mesh == nullptr)
         throw std::invalid_argument("Null mesh given");
@@ -544,7 +544,11 @@ depthmap_mesh_confidences (TriangleMesh::Ptr mesh, int iterations)
     for (int current = 0; current < iterations; ++current)
     {
         /* Calculate confidence for that iteration. */
-        float conf = (float)current / (float)iterations;
+        float conf = 0.0f;
+        if (current > clampIters)
+        {
+             conf = (float)current / (float)iterations;
+        }
         //conf = math::algo::fastpow(conf, 3);
 
         /* Assign current confidence to all vertices. */

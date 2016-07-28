@@ -26,6 +26,7 @@
 #include "mve/mesh_io.h"
 #include "mve/mesh_io_ply.h"
 #include "mve/mesh_tools.h"
+#include "util/string.h"
 #include "mve/scene.h"
 #include "mve/view.h"
 
@@ -41,6 +42,11 @@ struct AppSettings
 
     float min_valid_fraction = 0.0f;
 	float scale_factor = 2.5f; /* "Radius" of MVS patch (usually 5x5). */
+
+    // Clamp confidence weights to zero (up to 'confClampIters' iterations)
+    // and then linear (up to 'confDownweightingIters')
+    std::size_t confClampIters = 0;
+    std::size_t confDownweightingIters = 4;
 
 	bool with_conf = false;
 	bool with_normals = false;
@@ -111,6 +117,7 @@ main (int argc, char** argv)
     args.add_option('p', "poisson-normals", false, "Scale normals according to confidence");
     args.add_option('S', "scale-factor", true, "Factor for computing scale values [2.5]");
 	args.add_option('F', "fssr", true, "FSSR output, sets -nsc and -di with scale ARG");
+    args.add_option('w', "conf-weighting-iters", true, "Clamp conf. from iteration 0 to 'a' and then linear increase to 'b'. [a,b]=[0,4]");
     args.parse(argc, argv);
 
     /* Init default settings. */
@@ -151,6 +158,14 @@ main (int argc, char** argv)
 				conf.image = (0 == scale ? "undistorted" : "undist-L" + scaleString);
                 break;
 			}
+            case 'w':
+            {
+                util::Tokenizer tk;
+                tk.split(arg->get_arg<std::string>(), ',');
+                conf.confClampIters = util::string::convert<std::size_t>(tk[0]);
+                conf.confDownweightingIters = util::string::convert<std::size_t>(tk[1]);
+                break;
+            }
 
             default: throw std::runtime_error("Unknown option");
         }
@@ -267,7 +282,7 @@ main (int argc, char** argv)
         if (conf.with_conf)
         {
             /* Per-vertex confidence down-weighting boundaries. */
-            mve::geom::depthmap_mesh_confidences(mesh, 4);
+            mve::geom::depthmap_mesh_confidences(mesh, conf.confClampIters, conf.confDownweightingIters);
 
 #if 0
             /* Per-vertex confidence based on normal-viewdir dot product. */
